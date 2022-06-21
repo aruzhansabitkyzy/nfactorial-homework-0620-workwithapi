@@ -71,3 +71,6 @@
   font-weight: bold;
   color: steelblue;
 }
+.complete, .uncomplete {
+  cursor: pointer;
+}

@@ -1,9 +1,10 @@
 import {useEffect, useState} from "react";
 import "./App.css";
 import axios from "axios";
+import { TodoistApi } from '@doist/todoist-api-typescript';
 
 const BACKEND_URL = "http://10.65.132.54:3000";
-
+const api = new TodoistApi('859e0984eb551022917c0fb33ce3885443227596');
 /*
 * Plan:
 *   1. Define backend url
@@ -19,37 +20,82 @@ function App() {
   const [itemToAdd, setItemToAdd] = useState("");
   const [items, setItems] = useState([]);
   const [searchValue, setSearchValue] = useState("");
+  const [completed, setCompleted] = useState([]);
+  // let complete = false;
+  const [complete, setComplete] = useState(false)
 
   const handleChangeItem = (event) => {
     setItemToAdd(event.target.value);
   };
 
+  const handleNotCompleted = () => {
+   
+    setComplete(false);
+  }
+
+  const handleCompleted = () => {
+    setComplete(true);
+
+    axios.get(`https://api.todoist.com/sync/v8/completed/get_all`, {
+          headers : {
+            Authorization : "Bearer 859e0984eb551022917c0fb33ce3885443227596"
+          }
+      }).then((response) => {
+          setCompleted(response.data.items);
+          console.log(response.data.items);
+          console.log(completed);
+      })
+  }
+
   const handleAddItem = () => {
-    axios.post(`${BACKEND_URL}/todos`, {
-        label:itemToAdd,
-        done: false
-    }).then((response) => {
-        setItems([ ...items, response.data])
-    })
-    setItemToAdd("");
+    // axios.post(`${BACKEND_URL}/todos`, {
+    //     label:itemToAdd,
+    //     done: false
+    // }).then((response) => {
+    //     setItems([ ...items, response.data])
+    // })
+    // setItemToAdd("");
+  
+          api.addTask({
+              content: itemToAdd
+          })
+          .then((task) =>{
+           
+            setItems([task, ...items]);
+            console.log(items);
+            setItemToAdd("");
+          })
+          .catch((error) => {
+            console.log(error)
+          })
+    
+        
   };
 
 
   const toggleItemDone = ({ id, done }) => {
-      axios.put(`${BACKEND_URL}/todos/${id}`, {
-          done: !done
-      }).then((response) => {
-          setItems(items.map((item) => {
-              if (item.id === id) {
-                  return {
-                      ...item,
-                      done: !done
-                  }
-              }
-              return item
-          }))
 
-      })
+       api.closeTask(
+           id
+       )
+       .then((done) => console.log(done))
+       .catch((error) => console.log(error))
+
+
+      // axios.put(`${BACKEND_URL}/todos/${id}`, {
+      //     done: !done
+      // }).then((response) => {
+      //     setItems(items.map((item) => {
+      //         if (item.id === id) {
+      //             return {
+      //                 ...item,
+      //                 done: !done
+      //             }
+      //         }
+      //         return item
+      //     }))
+
+      // })
   };
 
   // N => map => N
@@ -67,13 +113,15 @@ function App() {
   };
 
   useEffect(() => {
-      console.log(searchValue)
-      axios.get(`${BACKEND_URL}/todos/?filter=${searchValue}`).then((response) => {
+      axios.get(`https://api.todoist.com/rest/v1/tasks`, {
+          headers : {
+            Authorization : "Bearer 859e0984eb551022917c0fb33ce3885443227596"
+          }
+      }).then((response) => {
           setItems(response.data);
       })
-  }, [searchValue])
-
-
+    // }
+  }, []);
 
   return (
     <div className="todo-app">
@@ -92,40 +140,72 @@ function App() {
           onChange={(event) => setSearchValue(event.target.value)}
         />
       </div>
+      <button className="uncomplete" onClick = {handleNotCompleted}>Uncompleted</button>
+      <button className ="complete" onClick={handleCompleted}>Completed</button>
 
       {/* List-group */}
       <ul className="list-group todo-list">
-        {items.length > 0 ? (
-          items.map((item) => (
-            <li key={item.id} className="list-group-item">
-              <span className={`todo-list-item${item.done ? " done" : ""}`}>
-                <span
-                  className="todo-list-item-label"
-                  onClick={() => toggleItemDone(item)}
-                >
-                  {item.label}
+        {!complete ? (
+            items.map((item) => (
+              <li key={item.id} className="list-group-item">
+                <span className={`todo-list-item${item.done ? " done" : ""}`}>
+                  <span
+                    className="todo-list-item-label" 
+                    onClick={() => toggleItemDone(item)}
+                  >
+                    {item.content}
+                  </span>
+  
+                  <button
+                    type="button"
+                    className="btn btn-outline-success btn-sm float-right"
+                  >
+                    <i className="fa fa-exclamation" />
+                  </button>
+  
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-sm float-right"
+                    onClick={() => handleItemDelete(item.id)}
+                  >
+                    <i className="fa fa-trash-o" />
+                  </button>
                 </span>
+              </li>
+            ))
+          ) : (
+            
+              completed.map((item) => (
+                <li key={item.id} className="list-group-item">
+                  <span className={`todo-list-item${item.done ? " done" : ""}`}>
+                    <span
+                      className="todo-list-item-label" 
+                      onClick={() => toggleItemDone(item)}
+                    >
+                      {item.content}
+                    </span>
+    
+                    <button
+                      type="button"
+                      className="btn btn-outline-success btn-sm float-right"
+                    >
+                      <i className="fa fa-exclamation" />
+                    </button>
+    
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm float-right"
+                      onClick={() => handleItemDelete(item.id)}
+                    >
+                      <i className="fa fa-trash-o" />
+                    </button>
+                  </span>
+                </li>
+              )
+            )
+          )}
 
-                <button
-                  type="button"
-                  className="btn btn-outline-success btn-sm float-right"
-                >
-                  <i className="fa fa-exclamation" />
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-outline-danger btn-sm float-right"
-                  onClick={() => handleItemDelete(item.id)}
-                >
-                  <i className="fa fa-trash-o" />
-                </button>
-              </span>
-            </li>
-          ))
-        ) : (
-          <div>No todos🤤</div>
-        )}
+       
       </ul>
 
       {/* Add form */}
